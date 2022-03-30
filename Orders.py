@@ -105,7 +105,7 @@ def main_orders() -> None:
     STATUS = []
     STATUS2 = []
     STATUSES = []
-    TIME_OUT_MAX = 60
+    TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
     BREAK_END = None
     PARAMS = {

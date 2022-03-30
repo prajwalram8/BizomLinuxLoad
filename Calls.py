@@ -103,7 +103,7 @@ def main_calls() -> None:
     JUMP_SIZE = 200
     STATUS = []
     STATUSES = []
-    TIME_OUT_MAX = 20
+    TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
     BREAK_END = None
     PARAMS = {

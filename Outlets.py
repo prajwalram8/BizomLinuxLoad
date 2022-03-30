@@ -103,7 +103,7 @@ def main_outlets() -> None:
     JUMP_SIZE = 500                                 # need to figure out a way to dynamical adjust the size
     STATUSES = []
     STATUS = []
-    TIME_OUT_MAX = 60
+    TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
     PARAMS = {
             'access_token': f'{get_access_token(BASE_URL=BASE_URL)}'

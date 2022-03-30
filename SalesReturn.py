@@ -103,7 +103,7 @@ def main_salesreturn() -> None:
     JUMP_SIZE = 100
     STATUSES = []
     STATUS = []
-    TIME_OUT_MAX = 60
+    TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
     BREAK_END = None
     PARAMS = {

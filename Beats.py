@@ -100,7 +100,7 @@ def main_beats() -> None:
     STATUSES = []
     STATUS = []
     STATUS2 = []
-    TIME_OUT_MAX = 60
+    TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
     PARAMS = {
             'access_token': f'{get_access_token(BASE_URL=BASE_URL)}',
