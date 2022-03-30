@@ -40,7 +40,7 @@ LOG_PATH = f'{NAME}/Logs'
 CSV_FILE_PATH = f'{NAME}/CSV_LOCAL_STAGE'
 INJ_LOG_PATH = f'{NAME}/CSV_LOCAL_LOGS_STAGE'
 TEMP_STAGE_PATH = f'{NAME}/TEMP_STAGE'
-INJESTION_DELIVERY_CONFIRMATION  = ['kdb081293@gmail.com']
+INJESTION_DELIVERY_CONFIRMATION  = ['kdb081293@gmail.com','lakshman.bmln@gmail.com']
 
 # Checking and creating necessary operating directories in the temp folder of the system
 LOG_PATH = os.path.join(TEMPFILE_PATH, LOG_PATH)
