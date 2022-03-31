@@ -10,7 +10,6 @@ import configparser
 import pandas as pd
 from datetime import datetime as dt
 from datetime import timedelta as td
-from pythonjsonlogger import jsonlogger
 from shared_modules.email_utilities import send_mail, send_mail_update
 from shared_modules.response_utilities import find_json_objects, json_to_df 
 from shared_modules.datetime_utilities import dt_to_string, string_to_dt, daterange
