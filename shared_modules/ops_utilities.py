@@ -163,5 +163,3 @@ def check_directory_exists(dir_path):
         print("Given directory doesn't exist")
         False
         
-if __name__ == "__main__":
-    merge_in_path('C:\\Users\\Prajwal.G\\AppData\\Local\\Temp\\INVOICES\\TEMP_STAGE\\INVOICES_2022-02-17_2022-02-18_1645187126_DETAILS_2.csv')
