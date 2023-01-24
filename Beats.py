@@ -1,6 +1,6 @@
 import os
-import sys
 import time
+import sys
 import shutil
 import pathlib
 import logging
@@ -9,12 +9,14 @@ import traceback
 import configparser
 import pandas as pd
 from datetime import datetime as dt
+from datetime import timedelta as td
 from shared_modules.email_utilities import send_mail, send_mail_update
-from shared_modules.response_utilities import find_json_objects, dataframarize 
-from shared_modules.datetime_utilities import dt_to_string
+from shared_modules.response_utilities import find_json_objects,dataframarize
+from shared_modules.datetime_utilities import dt_to_string, string_to_dt, daterange
 from shared_modules.api_call_utilities import  create_url, get_access_token,execute_api
-from shared_modules.ops_utilities import terminater, add_inj_date, check_update, merge_in_path, check_directory_exists 
-from shared_modules.snw_cdw_handler import connect_to_db, est_connection,copy_into_table, context_update
+from shared_modules.ops_utilities import check_directory_exists, terminater, add_inj_date, check_update, merge_in_path 
+from shared_modules.snw_cdw_handler import connect_to_db, est_connection, context_update, read_context, copy_into_table
+
 ## INITIALIZE GLOBAL VARIABLES
 NAME = 'BEATS'
 
@@ -90,25 +92,27 @@ def main_beats() -> None:
 
 
     # Read configuration file for context
-    logger.info('Skipping context variable read as it is a full master load for every run')
+    CONTEXT = read_context(conn, NAME=NAME,default_context=DEFAULT_ST_DT)
+    logger.info(f'Context variable for {NAME} API Injestion script successfully initialized')
 
-    # Configure Local Variables
+     # Configure Local Variables
     URL_EXT = '/beats/getbeats'
-    START =  DEFAULT_ST_DT                          # Needs to be set up to read from he setting.json file eventually
-    END = f'{dt_to_string(dt.now())}'                             # Needs to be set up to read from he setting.json file eventually
-    JUMP_SIZE = 5                                 
+    START =  string_to_dt(CONTEXT).date()                  # Needs to be set up to read from he setting.json file eventually
+    END = dt.now().date() + td(days=1)                     # Need to figure out a way to dynamical adjust the size
+    BUFFER = 1                                             # To be defined based on the maximum timeframe within which order details can be modified in the Bizom System
+    JUMP_SIZE = 5
     STATUSES = []
     STATUS = []
-    STATUS2 = []
     TIME_OUT_MAX = 45
     LOOP_TIMEOUT = time.time() + 60*TIME_OUT_MAX
+    BREAK_END = None
     PARAMS = {
             'access_token': f'{get_access_token(BASE_URL=BASE_URL)}',
             'responsetype': 'json',
             'dateType': 'modified',
         }
-
-    # Defining temp folder location paths to stage the injested files
+    
+     # Defining temp folder location paths to stage the injested files
     INT_STAGE_PATH = os.path.join(
             TEMPFILE_PATH, 
             TEMP_STAGE_PATH, 
@@ -125,70 +129,90 @@ def main_beats() -> None:
     pathlib.Path(INT_STAGE_PATH).mkdir(parents=True, exist_ok=True)
     pathlib.Path(INT_STAGE_PATH_2).mkdir(parents=True, exist_ok=True)
     
+    print(INT_STAGE_PATH, INT_STAGE_PATH_2)
+
     # Loop to control the upload until prescribed sequence begins
-    logger.info("Global and Parameters successfully initialized; entering the batch loop sequence..")
+    logger.info("Globals and Parameters successfully initialized; entering the batch loop sequence..")
     
-    START_SEQ  = 0
+    REDO = True
 
-    while True:
+    for dat in daterange(START, END):
 
-        # Batch End
-        END_SEQ = START_SEQ + JUMP_SIZE
-
-        # Dynamic Parameters updated
-        PARAMS['startseq'] = str(START_SEQ)
-        PARAMS['endseq'] = str(END_SEQ)
-        PARAMS['fromdate'] = dt_to_string(START)
-        PARAMS['todate'] = dt_to_string(END)
-
-        # Create URL for call
-        url = create_url(BASE_URL=BASE_URL,URL_EXT=URL_EXT)
-
-        # Call API and save the response
-        response = execute_api(url, 'GET', PARAMS)
-        logger.info(f"URL: {response.url}")
-
-        # Save the relevant JSON object in response       
-        jason = find_json_objects(response, json_obj_name='Response')
-        logger.debug("Json objects recieved and located")
-
-        if not terminater(jason=jason, record_path='Beats',loop_timeout=LOOP_TIMEOUT):
-            logger.debug("API call failed to respond with any data, iterating to the next date")
+        if time.time() > LOOP_TIMEOUT:
+            # Update END parameter to the recent day before the current value of each as the loop as not entered the data procurement pipeline 
+            BREAK_END = dat - td(days=1)
+            REDO = False
+            logger.info("Internal Break criteria achieved due to timer condition. Breaking the batch loop")
+            # Break the primary date loop
             break
-        else:
-
-            # Custom change for beats master considering its format of data collection
-            true_beats=[]
-            true_beats_dets = []
-            for each in list(jason['Beats']):
-                true_beats.append(jason['Beats'][each])
-                true_beats_dets.append(jason['Beats'][each]['Beatdetails']['Beatdetail']) 
-
-            # #flattening out beats
-            true_beats_dets = [subeach for each in true_beats_dets for subeach in each]
-
-            # Converting JSON responses to dataframe
-            output_df = dataframarize(true_beats)
-            output_df2 = dataframarize(true_beats_dets)
-
-            # Staging dataframes locally
-            try:
-                file_path = os.path.join(INT_STAGE_PATH, f'STAGE_{NAME}_{PARAMS["fromdate"]}_{PARAMS["startseq"]}_{PARAMS["endseq"]}.csv')
-                output_df.to_csv(file_path,sep="\t", index=False, line_terminator="\n", encoding='utf-8')
-            except AttributeError:
-                raise
         
-            # Staging dataframes locally
-            try:
-                file_path2 = os.path.join(INT_STAGE_PATH_2,  f'STAGE_{NAME}_{PARAMS["fromdate"]}_{PARAMS["startseq"]}_{PARAMS["endseq"]}_DETAILS.csv')
-                output_df2.to_csv(file_path2, sep="\t", index=False, line_terminator="\n", encoding='utf-8')
-            except AttributeError:
-                raise
+        else:
+            START_SEQ  = 0
+            while True:
 
-            # Update the sequence start range
-            START_SEQ = END_SEQ
+                # Batch End
+                END_SEQ = START_SEQ + JUMP_SIZE
 
+
+                # Dynamic Parameters updated
+                PARAMS['startseq'] = str(START_SEQ)
+                PARAMS['endseq'] = str(END_SEQ)
+                PARAMS['fromdate'] = dt_to_string(dat)
+                PARAMS['todate'] = dt_to_string(dat)
+                
+
+                # Create URL for call
+                url = create_url(BASE_URL=BASE_URL,URL_EXT=URL_EXT)
+
+                # Call API and save the response
+                response = execute_api(url, 'GET', PARAMS)
+                logger.info(f"URL: {response.url}")
+
+                # Save the relevant JSON object in response       
+                jason = find_json_objects(response, json_obj_name='Response')
+
+
+                if not terminater(jason=jason, record_path='Beats',loop_timeout=None):
+                    logger.debug("API call failed to respond with any data, iterating to the next date")
+                    break
+                else:
+                    print("found it!")
+                        # Custom change for beats master considering its format of data collection
+                    true_beats=[]
+                    true_beats_dets = []
+                    for each in list(jason['Beats']):
+                        true_beats.append(jason['Beats'][each])
+                        true_beats_dets.append(jason['Beats'][each]['Beatdetails']['Beatdetail']) 
+
+                    # #flattening out beats
+                    true_beats_dets = [subeach for each in true_beats_dets for subeach in each]
+
+                    # Converting JSON responses to dataframe
+                    output_df = dataframarize(true_beats)
+                    output_df2 = dataframarize(true_beats_dets)
+
+                    # Staging dataframes locally
+                    try:
+                        file_path = os.path.join(INT_STAGE_PATH, f'STAGE_{NAME}_{PARAMS["fromdate"]}_{PARAMS["startseq"]}_{PARAMS["endseq"]}.csv')
+                        output_df.to_csv(file_path,sep="\t", index=False, line_terminator="\n", encoding='utf-8')
+                    except AttributeError:
+                        raise
+                
+                    # Staging dataframes locally
+                    try:
+                        file_path2 = os.path.join(INT_STAGE_PATH_2,  f'STAGE_{NAME}_{PARAMS["fromdate"]}_{PARAMS["startseq"]}_{PARAMS["endseq"]}_DETAILS.csv')
+                        output_df2.to_csv(file_path2, sep="\t", index=False, line_terminator="\n", encoding='utf-8')
+                    except AttributeError:
+                        raise
+ 
+                    # Update the sequence start range
+                    START_SEQ = END_SEQ
+                
     logger.info("Internal Break criteria achieved as API call conditions have reached max limit")
+        
+    if REDO:
+        # Update context variable
+        BREAK_END = dat
 
     # Creation path variable to which the original files needs to be renamed to
     INT_STAGE_PATH_RN = os.path.join(
@@ -206,7 +230,7 @@ def main_beats() -> None:
     # Rename the directory being stored to the new name
     os.rename(src=INT_STAGE_PATH, dst=INT_STAGE_PATH_RN)
     os.rename(src=INT_STAGE_PATH_2,dst=INT_STAGE_PATH_2_RN)
-        
+
     if check_directory_exists(dir_path=INT_STAGE_PATH_RN) and check_directory_exists(dir_path=INT_STAGE_PATH_2_RN):
         # Creating merged files
         upload_df1 = merge_in_path(INT_STAGE_PATH_RN)
@@ -257,7 +281,8 @@ def main_beats() -> None:
                     )
 
             #To update in the ETL context
-            CONTEXT = dt_to_string(END)
+            CONTEXT = BREAK_END - td(days=BUFFER)
+            CONTEXT = dt_to_string(CONTEXT)  
         
             # Update the context variable (Placement here to ensure completion of all critical steps)
             context_update(conn, NAME=NAME, CONT=CONTEXT, table_name='ETL_CONTEXT')
@@ -272,6 +297,7 @@ def main_beats() -> None:
     else:
         ingestion_status = None
         logger.info(f"Ingestion process for {NAME} did not yield and new data; Context value remains the same.")
+
 
 #--------------------------------------- CODE BOCK DIFFERENCE ENDS----------------------------------------
     
@@ -302,9 +328,9 @@ def main_beats() -> None:
         except:
             logger.error(f"Logs load for {NAME} into internal stage unsuccessfully Uncaught Exception: {traceback.format_exc()}")
 
+
     # Removing the temporary stage directory
     shutil.rmtree(INT_STAGE_PATH_RN, ignore_errors=True)
-    shutil.rmtree(INT_STAGE_PATH_2_RN, ignore_errors=True)
     logger.info("Local stage directory removed successfully")
     return None
 
