@@ -1,0 +1,11 @@
+0 16 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/ActivityForms.sh
+0 20 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Beats.sh
+0 17 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Calls.sh
+0 18 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Collections.sh
+30 23 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Inventory.sh
+0 22 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Invoices.sh
+0 1,5,9,13 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Orders.sh
+0 2 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Outlets.sh
+0 19 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/SalesReturn.sh
+0 7 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Skus.sh
+0 21 * * * bash /home/code-user/BizomEL/BizomLinuxLoad/Pjp.sh
